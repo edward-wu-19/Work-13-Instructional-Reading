@@ -8,7 +8,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-struct entry{int year; int population; char boro[15];};
+struct pop_entry{int year; int population; char boro[15];};
 void read_csv();
 void read_data();
 void add_data();
@@ -28,15 +28,18 @@ void read_csv(){
     struct stat *fileinput = malloc(sizeof(struct stat));
     stat("nyc_pop.csv", fileinput);
 
+    int size = fileinput->st_size;
+    int count = 23;
+
     // read file
-    char *buffer = calloc(1, fileinput->st_size);
-    read(foo, buffer, fileinput->st_size);
+    char *buffer = calloc(1, size);
+    read(foo, buffer, size);
 
     char *tmpp = buffer;
 
     char *headings[5] = {"Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island"};
 
-    struct entry database[128];
+    struct pop_entry database[5 * count];
     int line;
     int j;
     int line_data[5];
@@ -62,6 +65,8 @@ void read_csv(){
     //     printf("%d, %s, %d\n", database[line].year, database[line].boro, database[line].population);
     // }
 
+    // printf("%d\n", database[114].year);
+
     // create new file
     int goo = open("nyc_pop.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (goo == -1){
@@ -73,44 +78,71 @@ void read_csv(){
 
     struct stat *fileoutput = malloc(sizeof(struct stat));
     stat("nyc_pop.txt", fileoutput);
-    int size = fileoutput->st_size;
+    int sizeO = fileoutput->st_size;
 
-    printf("Wrote %d bytes to nyc_pop.txt\n\n", size);
+    printf("Wrote %d bytes to nyc_pop.txt\n", sizeO);
 
-    printf("DONE\n");
+    // printf("DONE\n");
 }
 
 void read_data(){
-    struct entry *database = calloc(115, sizeof(struct entry));
+
     int goo = open("./nyc_pop.txt", O_RDONLY);
-    int len = read(goo, database, sizeof(database));
+
+    struct stat *fileinput = malloc(sizeof(struct stat));
+    stat("./nyc_pop.txt", fileinput);
+
+    int size = fileinput->st_size;
+    int count = size / sizeof(struct pop_entry);
+
+    struct pop_entry *database = calloc(count, sizeof(struct pop_entry));
+    int len = read(goo, database, size);
+
+    // printf("%d\n", count);
     int i;
-    for (i = 0; i < 115; i++){
-        printf("%d: year: %d\tboro: %s\tpop: %d\n", i, database[i].year, database[i].boro, database[i].population);
+    for (i = 0; i < count; i++){
+        printf("%d: \tyear: %d\tboro: %s\tpop: %d\n", i, database[i].year, database[i].boro, database[i].population);
     }
+    
 }
 
 void add_data(){
     printf("Enter year boro pop: ");
-    struct entry tmp;
+    struct pop_entry tmp;
+
     char buffer[128], boro[15];
     fgets(buffer, 128, stdin);
-    sscanf(buffer, "%d %s %d\n", &tmp.year, tmp.boro, &tmp.population);
+    sscanf(buffer, "%d %s %d\n", &(tmp.year), boro, &(tmp.population));
+    strncpy(tmp.boro, boro, 15);
 
     int goo = open("./nyc_pop.txt", O_WRONLY | O_APPEND);
+    if (goo == -1){
+        printf("Error: %s\n\n", strerror(errno));
+        return;
+    }
+
+    // printf("%d, %s, %d\n", tmp.year, tmp.boro, tmp.population);
 
     int humph = write(goo, &tmp, sizeof(tmp));
+    if (humph == -1){
+        printf("Error: %s\n\n", strerror(errno));
+        return;
+    }
+
+    close(goo);
 
     printf("Appended data to file: year: %d\t boro: %s\t population: %d\n", tmp.year, tmp.boro, tmp.population);
 }
 
 void update_data(){
-    int goo = open("./nyc_pop.txt", O_RDWR | O_APPEND);
+    read_data();
+
+    int goo = open("./nyc_pop.txt", O_RDWR);
 
     struct stat *fileinput = malloc(sizeof(struct stat));
     stat("nyc_pop.csv", fileinput);
     int size = fileinput->st_size;
-    int entries = size / sizeof(struct entry);
+    int entries = size / sizeof(struct pop_entry);
 
     int change_this_index;
 
@@ -120,14 +152,14 @@ void update_data(){
     sscanf(changes, "%d\n", &change_this_index);
     
     printf("Enter year boro pop: ");
-    struct entry tmp;
+    struct pop_entry tmp;
     char buffer[128], boro[15];
     fgets(buffer, 128, stdin);
     sscanf(buffer, "%d %s %d\n", &tmp.year, tmp.boro, &tmp.population);
 
-    lseek(goo, change_this_index * sizeof(struct entry), SEEK_SET);
+    lseek(goo, change_this_index * sizeof(struct pop_entry), SEEK_SET);
 
-    int humphies = write(goo, &tmp, sizeof(struct entry));
+    int humphies = write(goo, &tmp, sizeof(struct pop_entry));
 
     printf("File updated.\n");
 }
@@ -135,15 +167,16 @@ void update_data(){
 int main(int argc, char *argv[]){
     char input[15];
 
-    // if (argc == 1){
-    //     printf("Please enter what you would like to do\n> ");
-    //     fgets(input, 15, stdin);
-    //     *strchr(input, '\n') = '\0';
-    // }
-    // else{
-    //     strcpy(input, argv[1]);
+    if (argc == 1){
+        printf("Please enter what you would like to do\nChoices are -read_csv, -read_data, -add_data, -update_data\nSelection: ");
+        fgets(input, 15, stdin);
+        printf("================================================\n");
+        *strchr(input, '\n') = '\0';
+    }
+    else if (argc > 1){
+        strcpy(input, argv[1]);
+    }
 
-    fgets(input, 15, stdin);
     if (strcmp(input, "-read_csv") == 0){
         read_csv();
     }
